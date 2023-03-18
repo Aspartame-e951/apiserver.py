@@ -1,33 +1,36 @@
 from flask import Flask, jsonify, request
 import subprocess
 import requests
-import platform
 import asyncio
-import re
 
 app = Flask(__name__)
 
 class Server:
     def __init__(self):
-        # Post to listen to
+        # Port to listen to
         self.port = 5555
         # Path to llama.cpp executable
-        self.llamacpp_path = "./llama"
+        self.llamacpp_path = './main'
         # Path to the model to use
-        self.model_path = "./models/7B/ggml-model-q4_0.bin"
+        self.model_path = './models/7B/ggml-model-q4_0.bin'
         # How many thread to use
         self.threads = 8;
-        # Announces this model name to the api
-        self.model_announce = "Facebook/LLaMA-7b"
         # Announces maximum context length to api
         self.max_context_length = 1024
         # Announces max length (to generate) to api
         self.max_length = 80
-        # Announces the current softprompt to api (Unused)
-        self.softprompt = ""
+        
+        # Announces this model name to the api
+        # (Use 'Pygmalion/pygmalion-6b' for TavernAI)
+        self.model_announce = 'Pygmalion/pygmalion-6b'
+        
+        # Announces current softprompt to api (Unused)
+        self.softprompt = ''
         # Announces a list of softprompts to api (Unused)
         self.softprompts_list = []
-        # Don't change, api need to users know if we're busy
+        # Show output as a string representation of an object.
+        self.repr_output = True
+        # Don't change, users need to know if we're busy
         self.busy = False
 
     # API - generate
@@ -38,9 +41,9 @@ class Server:
         # 503, we're already generating something
         if server.busy:
             return jsonify({
-                "detail": {
-                    "msg": "Server is busy; please try again later.",
-                    "type": "service_unavailable"
+                'detail': {
+                    'msg': 'Server is busy; please try again later.',
+                    'type': 'service_unavailable'
                 }
             }), 503
         
@@ -124,38 +127,53 @@ class Server:
         #command_args.extend(['--repeat_last_n', str(rep_pen_range)])
         
         print_args = command_args.copy()
-        prompt = data.get('prompt', '')
+        prompt = data.get('prompt', '').replace('\r\n', '\n')
         command_args.extend(['-p', prompt])
 
         # Construct full command
         command = [server.llamacpp_path, '-m', server.model_path, '-t', str(server.threads)] + command_args
-        print("[PROMPT] \033[93m" + prompt + "\033[0m") # Print PROMPT
-        print("[ARGS] \033[92m" + str(print_args) + "\033[0m") # Print ARGS
+        # Print PROMPT
+        if server.repr_output:
+            print('[PROMPT] \033[93m' + repr(prompt) + '\033[0m')
+        else:
+            print('[PROMPT] \033[93m' + prompt + '\033[0m')
+        print('[ARGS] \033[92m' + str(print_args) + '\033[0m') # Print ARGS
 
         server.busy = True # We're busy
-        process = await asyncio.create_subprocess_exec(*command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
         stdout, _ = await process.communicate()
-
+        
         if process.returncode != 0:
             return jsonify({
-                "detail": {
-                    "msg": "Error generating response.",
-                    "type": "server_error"
+                'detail': {
+                    'msg': 'Error generating response.',
+                    'type': 'server_error'
                 }
             }), 500
-
-        # Command prompt newline terribleness
-        if platform.system() == "Windows":
-            prompt = prompt.replace('\n', '\\n')
-        output_str = stdout.decode('utf-8')[len(prompt):]
+        
+        # Windows specific: \r\r\n to \r\n
+        output_str = stdout.decode('utf-8').replace('\r\n', '\n')
+        output_str = output_str.replace(prompt, '')
+        
+        # Print OUTPUT
+        if server.repr_output:
+            print('[OUTPUT] \033[94m' + repr(output_str) + '\033[0m')
+        else:
+            print('[OUTPUT] \033[94m' + output_str + '\033[0m')
         
         server.busy = False # Not busy
-        print ("[OUTPUT] \033[94m" + output_str + "\033[0m") # Print OUTPUT
-        return jsonify({"results": [{"text": output_str}]}), 200
+        return jsonify({'results': [{'text': output_str}]}), 200
 
 # Do things
 server = Server()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=server.port)
+    app.run(
+        host='0.0.0.0',
+        port=server.port
+    )
     
