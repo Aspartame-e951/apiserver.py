@@ -10,7 +10,7 @@ class Server:
         # Port to listen to
         self.port = 5555
         # Path to llama.cpp executable
-        self.llamacpp_path = './main'
+        self.llamacpp_path = './llama'
         # Path to the model to use
         self.model_path = './models/7B/ggml-model-q4_0.bin'
         # How many thread to use
@@ -22,14 +22,14 @@ class Server:
         
         # Announces this model name to the api
         # (Use 'Pygmalion/pygmalion-6b' for TavernAI)
-        self.model_announce = 'Pygmalion/pygmalion-6b'
+        self.model_announce = 'Facebook/LLaMA-7b'
         
         # Announces current softprompt to api (Unused)
         self.softprompt = ''
         # Announces a list of softprompts to api (Unused)
         self.softprompts_list = []
         # Show output as a string representation of an object.
-        self.repr_output = True
+        self.repr_output = False
         # Don't change, users need to know if we're busy
         self.busy = False
 
@@ -173,7 +173,6 @@ server = Server()
 
 if __name__ == '__main__':
     app.run(
-        host='0.0.0.0',
-        port=server.port
+        host = '0.0.0.0',
+        port = server.port
     )
-    
