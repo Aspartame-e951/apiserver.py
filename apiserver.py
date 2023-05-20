@@ -190,7 +190,8 @@ class Server:
             
             output_str = str(stdout.decode('utf-8', errors='ignore').replace('\r\n', '\n'))
             if len(output_str) > len(prompt)-1:
-                output_str = output_str[len(prompt)-1:]
+                #output_str = output_str[len(prompt)-1:]
+                output_str = str(output_str)[1:].replace(prompt, '');
 
             # Print OUTPUT
             if server.repr_output:
